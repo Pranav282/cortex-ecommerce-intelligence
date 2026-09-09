@@ -1,0 +1,30 @@
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# Credentials and secrets
+.env
+profiles.yml
+*.pem
+*.key
+
+# dbt-generated files
+target/
+dbt_packages/
+logs/
+
+# Local datasets
+data/raw/
+*.csv
+*.parquet
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Operating system
+.DS_Store
+Thumbs.db
