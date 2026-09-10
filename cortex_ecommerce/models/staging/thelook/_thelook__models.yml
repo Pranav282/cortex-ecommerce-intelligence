@@ -1,0 +1,361 @@
+version: 2
+
+models:
+  - name: stg_thelook__order_items_rejected
+    description: >
+      Order-item records excluded from the valid staging model because
+      their order identifiers do not exist in the extracted orders table.
+
+    columns:
+      - name: order_item_id
+        description: Unique identifier for the rejected order item.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: rejection_reason
+        description: Data-quality rule responsible for rejection.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - ORDER_ID_NOT_FOUND
+
+
+  - name: stg_thelook__users
+    description: Cleaned and standardized TheLook customer records.
+
+    columns:
+      - name: user_id
+        description: Unique identifier for the customer.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: email
+        description: Normalized customer email address.
+        data_tests:
+          - not_null
+
+      - name: age
+        description: Customer age.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 120
+
+      - name: acquisition_source
+        description: Original traffic source associated with the customer.
+
+  - name: stg_thelook__orders
+    description: Cleaned order-level eCommerce transactions.
+
+    columns:
+      - name: order_id
+        description: Unique identifier for an order.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: user_id
+        description: Customer who placed the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__users')
+                field: user_id
+
+      - name: order_status
+        description: Current order status.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - CANCELLED
+                  - COMPLETE
+                  - PROCESSING
+                  - RETURNED
+                  - SHIPPED
+
+      - name: item_count
+        description: Number of items included in the order.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+  - name: stg_thelook__order_items
+    description: Cleaned item-level records for eCommerce orders.
+
+    columns:
+      - name: order_item_id
+        description: Unique identifier for an order item.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: order_id
+        description: Order containing the item.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__orders')
+                field: order_id
+
+      - name: user_id
+        description: Customer associated with the order item.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__users')
+                field: user_id
+
+      - name: product_id
+        description: Product included in the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__products')
+                field: product_id
+
+      - name: inventory_item_id
+        description: Physical inventory unit assigned to the order item.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__inventory_items')
+                field: inventory_item_id
+
+      - name: order_item_status
+        description: Current order-item status.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - CANCELLED
+                  - COMPLETE
+                  - PROCESSING
+                  - RETURNED
+                  - SHIPPED
+
+      - name: sale_price
+        description: Customer-facing price of the order item.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+
+
+  - name: stg_thelook__distribution_centers
+    description: Cleaned distribution-center reference data.
+
+    columns:
+      - name: distribution_center_id
+        description: Unique identifier for a distribution center.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: distribution_center_name
+        description: Name of the distribution center.
+        data_tests:
+          - not_null
+
+      - name: latitude
+        description: Geographic latitude of the distribution center.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -90
+                max_value: 90
+
+      - name: longitude
+        description: Geographic longitude of the distribution center.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -180
+                max_value: 180
+
+  - name: stg_thelook__products
+    description: Cleaned product catalog with pricing and fulfillment attributes.
+
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "retail_price >= product_cost"
+
+    columns:
+      - name: product_id
+        description: Unique product identifier.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: product_name
+        description: Customer-facing product name.
+        data_tests:
+          - not_null
+
+      - name: product_sku
+        description: Stock-keeping unit assigned to the product.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: product_cost
+        description: Cost associated with the product.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: retail_price
+        description: Listed retail price of the product.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+
+      - name: distribution_center_id
+        description: Distribution center assigned to the product.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__distribution_centers')
+                field: distribution_center_id
+
+  - name: stg_thelook__inventory_items
+    description: Cleaned item-level inventory records and sale timestamps.
+
+    columns:
+      - name: inventory_item_id
+        description: Unique identifier for an individual inventory unit.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: product_id
+        description: Product represented by the inventory item.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__products')
+                field: product_id
+
+      - name: inventory_created_at
+        description: Time at which the inventory unit was created.
+        data_tests:
+          - not_null
+
+      - name: inventory_cost
+        description: Recorded cost of the inventory unit.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: distribution_center_id
+        description: Distribution center associated with the inventory unit.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__distribution_centers')
+                field: distribution_center_id
+
+  - name: stg_thelook__events
+    description: >
+      Standardized eCommerce website events used for session,
+      traffic-source and conversion-funnel analysis. Raw IP addresses
+      are replaced with one-way hashes.
+
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - session_id
+              - event_sequence_number
+
+    columns:
+      - name: event_id
+        description: Unique identifier for the website event.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: user_id
+        description: >
+          Customer associated with the event. Null values represent
+          anonymous website activity.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__users')
+                field: user_id
+
+      - name: session_id
+        description: Identifier connecting events from the same website session.
+        data_tests:
+          - not_null
+
+      - name: event_sequence_number
+        description: Position of the event within its session.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+      - name: event_created_at
+        description: Timestamp at which the website event occurred.
+        data_tests:
+          - not_null
+
+      - name: event_type
+        description: Standardized customer action performed on the website.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - home
+                  - department
+                  - product
+                  - cart
+                  - purchase
+                  - cancel
+
+      - name: ip_address_hash
+        description: SHA-256 hash of the source IP address.
+
+      - name: traffic_source
+        description: Acquisition source associated with the event.
+
+      - name: is_authenticated_event
+        description: Indicates whether the event is associated with a user.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - true
+                  - false
+                quote: false

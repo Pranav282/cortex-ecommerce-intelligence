@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: thelook
+    description: >
+      Raw TheLook eCommerce data extracted from the BigQuery public
+      dataset and loaded into Snowflake as Parquet files.
+
+    database: CORTEX_ECOMMERCE
+    schema: RAW
+
+    tables:
+      - name: users
+        description: Customer and account information.
+
+      - name: orders
+        description: Order-level transaction information.
+
+      - name: order_items
+        description: Individual products included in customer orders.
+
+      - name: products
+        description: Product catalog and pricing information.
+
+      - name: inventory_items
+        description: Individual inventory units and their sale status.
+
+      - name: distribution_centers
+        description: Distribution-center locations.
+
+      - name: events
+        description: Website sessions and customer behavioral events.
