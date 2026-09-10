@@ -1,0 +1,232 @@
+version: 2
+
+models:
+  - name: mart_customer_rfm
+    description: >
+      RFM customer segmentation model based on completed-order recency,
+      purchase frequency, and monetary value.
+
+    columns:
+      - name: user_id
+        description: Unique identifier for a purchasing customer.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: user_id
+
+      - name: analysis_date
+        description: Dataset-relative date used to calculate recency.
+        data_tests:
+          - not_null
+
+      - name: recency_days
+        description: Days between the latest completed order and analysis date.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: frequency
+        description: Number of completed orders placed by the customer.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+      - name: monetary_value
+        description: Revenue generated from completed orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: recency_score
+        description: RFM recency score ranging from one to five.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+      - name: frequency_score
+        description: RFM frequency score ranging from one to five.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+      - name: monetary_score
+        description: RFM monetary score ranging from one to five.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+      - name: customer_segment
+        description: Customer segment derived from the three RFM scores.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Champions
+                  - Loyal Customers
+                  - New or Promising
+                  - At Risk
+                  - Hibernating
+                  - Needs Attention
+
+  - name: mart_customer_360
+    description: >
+      Privacy-conscious Customer 360 mart combining customer attributes,
+      lifecycle KPIs, RFM scores, and behavioral segmentation.
+
+    columns:
+      - name: customer_key
+        description: >
+          Pseudonymized customer identifier used instead of directly
+          identifiable customer information.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: total_order_count
+        description: Total number of orders placed by the customer.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: lifetime_revenue
+        description: Revenue generated from completed orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: customer_return_rate
+        description: Share of fulfilled customer orders that were returned.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: customer_cancellation_rate
+        description: Share of all customer orders that were cancelled.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: customer_segment
+        description: RFM-based customer segment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Champions
+                  - Loyal Customers
+                  - New or Promising
+                  - At Risk
+                  - Hibernating
+                  - Needs Attention
+                  - Never Purchased
+
+      - name: engagement_status
+        description: Customer activity classification based on purchase recency.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Active
+                  - At Risk
+                  - Inactive
+                  - Never Purchased
+
+
+  - name: mart_customer_segment_summary
+    description: >
+      Executive summary of customer segments, revenue contribution,
+      retention indicators, and recommended business actions.
+
+    columns:
+      - name: customer_segment
+        description: Unique RFM-based customer segment.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_count
+        description: Number of customers in the segment.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+      - name: total_orders
+        description: Total orders placed by customers in the segment.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: total_revenue
+        description: Completed-order revenue generated by the segment.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: customer_share
+        description: Share of all customers belonging to the segment.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: revenue_share
+        description: Share of completed-order revenue generated by the segment.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: repeat_customer_rate
+        description: Share of segment customers who placed multiple orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: recommended_action
+        description: Recommended business action for the customer segment.
+        data_tests:
+          - not_null

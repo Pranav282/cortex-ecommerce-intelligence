@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      Customer-level dimension containing profile attributes,
+      purchasing metrics, and lifecycle classifications.
+
+    columns:
+      - name: user_id
+        description: Unique customer identifier.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_thelook__users')
+                field: user_id
+
+      - name: customer_created_at
+        description: Date and time when the customer account was created.
+        data_tests:
+          - not_null
+
+      - name: total_order_count
+        description: Total number of orders placed by the customer.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: completed_order_count
+        description: Number of completed orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: cancelled_order_count
+        description: Number of cancelled orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: returned_order_count
+        description: Number of returned orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: lifetime_revenue
+        description: Revenue generated from completed customer orders.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: lifecycle_status
+        description: Customer classification based on purchasing recency.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Never Purchased
+                  - Active
+                  - At Risk
+                  - Inactive
