@@ -1,0 +1,162 @@
+version: 2
+
+sources:
+  - name: ai_governance
+    description: >
+      Governed Snowflake ML and Cortex outputs supporting KPI anomaly
+      monitoring and AI-generated ecommerce executive insights.
+
+    database: CORTEX_ECOMMERCE
+    schema: AI_GOVERNANCE
+
+    tables:
+      - name: kpi_anomaly_results
+        identifier: KPI_ANOMALY_RESULTS
+        description: >
+          KPI observations scored by the Snowflake ML anomaly detector,
+          including forecasts, prediction intervals, and anomaly flags.
+
+        columns:
+          - name: series
+            description: KPI series evaluated by the model.
+            data_tests:
+              - not_null
+
+          - name: ts
+            description: Timestamp of the scored KPI observation.
+            data_tests:
+              - not_null
+
+          - name: y
+            description: Actual observed KPI value.
+            data_tests:
+              - not_null
+
+          - name: forecast
+            description: Value predicted by the anomaly-detection model.
+            data_tests:
+              - not_null
+
+          - name: lower_bound
+            description: Lower boundary of the prediction interval.
+            data_tests:
+              - not_null
+
+          - name: upper_bound
+            description: Upper boundary of the prediction interval.
+            data_tests:
+              - not_null
+
+          - name: is_anomaly
+            description: Indicates whether the KPI was outside its expected range.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [true, false]
+
+      - name: executive_summary_input
+        identifier: EXECUTIVE_SUMMARY_INPUT
+        description: >
+          Controlled non-PII KPI and anomaly context supplied to Cortex
+          for executive-summary generation.
+
+        columns:
+          - name: period_start_date
+            description: Beginning of the summarized reporting period.
+            data_tests:
+              - not_null
+
+          - name: period_end_date
+            description: End of the summarized reporting period.
+            data_tests:
+              - not_null
+
+          - name: scored_kpis
+            description: Number of KPI series included in the summary.
+            data_tests:
+              - not_null
+
+          - name: total_anomalies
+            description: Number of anomalies detected during the period.
+            data_tests:
+              - not_null
+
+          - name: kpi_summary_text
+            description: Factual KPI context supplied to the language model.
+            data_tests:
+              - not_null
+
+          - name: anomaly_detail_text
+            description: Detected-anomaly context supplied to the language model.
+            data_tests:
+              - not_null
+
+          - name: input_version
+            description: Version of the executive-summary input structure.
+            data_tests:
+              - not_null
+
+      - name: executive_summaries
+        identifier: EXECUTIVE_SUMMARIES
+        description: >
+          Governed history of Cortex-generated executive summaries,
+          including prompt, model, version, timestamp, and review status.
+
+        columns:
+          - name: summary_id
+            description: Unique identifier for the generated summary.
+            data_tests:
+              - not_null
+              - unique
+
+          - name: period_start_date
+            description: Beginning of the summarized reporting period.
+            data_tests:
+              - not_null
+
+          - name: period_end_date
+            description: End of the summarized reporting period.
+            data_tests:
+              - not_null
+
+          - name: model_name
+            description: Cortex language model used to generate the summary.
+            data_tests:
+              - not_null
+
+          - name: prompt_version
+            description: Version of the prompt used for generation.
+            data_tests:
+              - not_null
+
+          - name: input_version
+            description: Version of the source context used for generation.
+            data_tests:
+              - not_null
+
+          - name: prompt_text
+            description: Full prompt supplied to Cortex.
+            data_tests:
+              - not_null
+
+          - name: generated_summary
+            description: Executive narrative returned by Cortex.
+            data_tests:
+              - not_null
+
+          - name: generated_at
+            description: Timestamp when Cortex generated the summary.
+            data_tests:
+              - not_null
+
+          - name: review_status
+            description: Human-review status of the generated summary.
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values:
+                      - PENDING_REVIEW
+                      - APPROVED
+                      - REJECTED
