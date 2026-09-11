@@ -1,0 +1,42 @@
+version: 2
+
+exposures:
+  - name: kpi_anomaly_detection
+    label: KPI Anomaly Detection
+    type: ml
+    maturity: medium
+
+    description: >
+      Snowflake ML workflow that evaluates daily ecommerce KPIs,
+      calculates expected ranges, identifies anomalous observations,
+      and records excluded KPI series.
+
+    depends_on:
+      - ref('mart_daily_business_kpis')
+      - source('ai_governance', 'kpi_anomaly_results')
+
+    owner:
+      name: Pranav Nair
+      email: pranavnair50@gmail.com
+
+
+  - name: ecommerce_executive_intelligence
+    label: eCommerce Executive Intelligence
+    type: application
+    maturity: medium
+
+    description: >
+      Governed AI-assisted analytics workflow that combines ecommerce
+      KPI performance and Snowflake ML anomaly results, generates an
+      executive narrative using Snowflake Cortex, and stores the prompt,
+      model, output, version, timestamp, and human-review status.
+
+    depends_on:
+      - ref('mart_daily_business_kpis')
+      - source('ai_governance', 'kpi_anomaly_results')
+      - source('ai_governance', 'executive_summary_input')
+      - source('ai_governance', 'executive_summaries')
+
+    owner:
+      name: Pranav Nair
+      email: pranavnair50@gmail.com
