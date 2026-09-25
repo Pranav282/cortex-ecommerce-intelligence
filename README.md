@@ -162,21 +162,30 @@ Keep credentials outside Git. The repository does not require `profiles.yml`, pa
 cd cortex_ecommerce
 dbt deps
 dbt debug
-dbt build
+dbt build --exclude tag:post_training source:ai_governance
 ```
 
 ### Run Snowflake AI workflows
 
-After the dbt build succeeds, run the scripts in this order:
+The initial dbt build creates the ML training and scoring inputs in `ML`.
+Then run these steps in order from the dbt project directory:
 
-1. `snowflake/ml/prepare_anomaly_data.sql`
-2. `snowflake/ml/train_kpi_anomaly_detector.sql`
-3. `snowflake/ml/score_kpi_anomalies.sql`
-4. `snowflake/ml/kpi_anomaly_exclusions.sql`
-5. `snowflake/ml/validate_anomaly_results.sql`
-6. `snowflake/cortex/create_executive_summary_input.sql`
-7. `snowflake/cortex/generate_executive_summary.sql`
-8. `snowflake/cortex/validate_ai_output.sql`
+1. Run `snowflake/ml/train_kpi_anomaly_detector.sql` in Snowflake to train `ML.KPI_ANOMALY_DETECTOR_V2`. Its grant step requires an administrative role.
+2. Run `dbt build --select tag:post_training` to create `AI_GOVERNANCE.KPI_ANOMALY_RESULTS`, `KPI_ANOMALY_EXCLUSIONS`, and `EXECUTIVE_SUMMARY_INPUT` in dependency order.
+3. Run `snowflake/ml/validate_anomaly_results.sql` manually in Snowflake.
+4. Run `snowflake/cortex/generate_executive_summary.sql` only after its input-column mismatch is resolved (see below).
+5. Run `snowflake/cortex/validate_ai_output.sql` manually in Snowflake after generation.
+
+Training is external to dbt's model graph; the scoring model requires the trained
+object in the target database's `ML` schema. The standalone Snowflake scripts
+use `CORTEX_ECOMMERCE`, so use that database in the dbt target for this workflow.
+Rebuild inputs and rerun training before scoring when refreshing the detector.
+Validation scripts remain manual and are not executed by dbt.
+
+`generate_executive_summary.sql` is unchanged: it still expects
+`kpi_summary_text` and `anomaly_detail_text`, whereas the input model produces
+`kpi_facts`, `anomaly_facts`, and `cortex_input`. Generation remains blocked
+until that separate update is made.
 
 ## Known limitations
 
