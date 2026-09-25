@@ -162,7 +162,7 @@ Keep credentials outside Git. The repository does not require `profiles.yml`, pa
 cd cortex_ecommerce
 dbt deps
 dbt debug
-dbt build --exclude tag:post_training source:ai_governance
+dbt build --exclude tag:post_training
 ```
 
 ### Run Snowflake AI workflows
@@ -171,9 +171,9 @@ The initial dbt build creates the ML training and scoring inputs in `ML`.
 Then run these steps in order from the dbt project directory:
 
 1. Run `snowflake/ml/train_kpi_anomaly_detector.sql` in Snowflake to train `ML.KPI_ANOMALY_DETECTOR_V2`. Its grant step requires an administrative role.
-2. Run `dbt build --select tag:post_training` to create `AI_GOVERNANCE.KPI_ANOMALY_RESULTS`, `KPI_ANOMALY_EXCLUSIONS`, and `EXECUTIVE_SUMMARY_INPUT` in dependency order.
+2. Run `dbt build --select tag:post_training --exclude tag:summary_generation` to create `AI_GOVERNANCE.KPI_ANOMALY_RESULTS`, `KPI_ANOMALY_EXCLUSIONS`, and `EXECUTIVE_SUMMARY_INPUT` in dependency order.
 3. Run `snowflake/ml/validate_anomaly_results.sql` manually in Snowflake.
-4. Run `snowflake/cortex/generate_executive_summary.sql` only after its input-column mismatch is resolved (see below).
+4. Run `dbt run --select executive_summaries` to generate and store the executive summary.
 5. Run `snowflake/cortex/validate_ai_output.sql` manually in Snowflake after generation.
 
 Training is external to dbt's model graph; the scoring model requires the trained
@@ -182,10 +182,16 @@ use `CORTEX_ECOMMERCE`, so use that database in the dbt target for this workflow
 Rebuild inputs and rerun training before scoring when refreshing the detector.
 Validation scripts remain manual and are not executed by dbt.
 
-`generate_executive_summary.sql` is unchanged: it still expects
-`kpi_summary_text` and `anomaly_detail_text`, whereas the input model produces
-`kpi_facts`, `anomaly_facts`, and `cortex_input`. Generation remains blocked
-until that separate update is made.
+`models/governance/executive_summaries.sql` serializes the input model's
+`cortex_input` as JSON using the current `v2.0` prompt and `llama3.1-8b` model.
+It is an incremental append model: each run generates a new summary per input
+row, retaining earlier summaries and their review statuses. New rows use
+`PENDING_REVIEW`. Full refresh is disabled for this model to preserve history.
+A general `dbt run` or `dbt build` includes generation; exclude
+`tag:summary_generation` when you do not want new Cortex calls.
+To refresh the input and generate a summary together, run
+`dbt run --select executive_summary_input executive_summaries`.
+The manual validation scripts remain in `snowflake/`.
 
 ## Known limitations
 

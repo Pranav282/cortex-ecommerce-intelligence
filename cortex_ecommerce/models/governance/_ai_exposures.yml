@@ -35,7 +35,7 @@ exposures:
       - ref('mart_daily_business_kpis')
       - ref('kpi_anomaly_results')
       - ref('executive_summary_input')
-      - source('ai_governance', 'executive_summaries')
+      - ref('executive_summaries')
 
     owner:
       name: Pranav Nair

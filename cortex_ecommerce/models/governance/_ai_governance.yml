@@ -1,79 +1,68 @@
 version: 2
 
-sources:
-  - name: ai_governance
-    description: >
-      Governed Snowflake ML and Cortex outputs supporting KPI anomaly
-      monitoring and AI-generated ecommerce executive insights.
-
-    database: CORTEX_ECOMMERCE
-    schema: AI_GOVERNANCE
-
-    tables:
-      - name: executive_summaries
-        identifier: EXECUTIVE_SUMMARIES
-        description: >
-          Governed history of Cortex-generated executive summaries,
-          including prompt, model, version, timestamp, and review status.
-
-        columns:
-          - name: summary_id
-            description: Unique identifier for the generated summary.
-            data_tests:
-              - not_null
-              - unique
-
-          - name: period_start_date
-            description: Beginning of the summarized reporting period.
-            data_tests:
-              - not_null
-
-          - name: period_end_date
-            description: End of the summarized reporting period.
-            data_tests:
-              - not_null
-
-          - name: model_name
-            description: Cortex language model used to generate the summary.
-            data_tests:
-              - not_null
-
-          - name: prompt_version
-            description: Version of the prompt used for generation.
-            data_tests:
-              - not_null
-
-          - name: input_version
-            description: Version of the source context used for generation.
-            data_tests:
-              - not_null
-
-          - name: prompt_text
-            description: Full prompt supplied to Cortex.
-            data_tests:
-              - not_null
-
-          - name: generated_summary
-            description: Executive narrative returned by Cortex.
-            data_tests:
-              - not_null
-
-          - name: generated_at
-            description: Timestamp when Cortex generated the summary.
-            data_tests:
-              - not_null
-
-          - name: review_status
-            description: Human-review status of the generated summary.
-            data_tests:
-              - not_null
-              - accepted_values:
-                  arguments:
-                    values:
-                      - PENDING_REVIEW
-                      - APPROVED
-                      - REJECTED
 models:
+  - name: executive_summaries
+    description: >
+      Governed history of Cortex-generated executive summaries,
+      including prompt, model, version, timestamp, and review status.
+
+    columns:
+      - name: summary_id
+        description: Unique identifier for the generated summary.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: period_start_date
+        description: Beginning of the summarized reporting period.
+        data_tests:
+          - not_null
+
+      - name: period_end_date
+        description: End of the summarized reporting period.
+        data_tests:
+          - not_null
+
+      - name: model_name
+        description: Cortex language model used to generate the summary.
+        data_tests:
+          - not_null
+
+      - name: prompt_version
+        description: Version of the prompt used for generation.
+        data_tests:
+          - not_null
+
+      - name: input_version
+        description: Version of the source context used for generation.
+        data_tests:
+          - not_null
+
+      - name: prompt_text
+        description: Full prompt supplied to Cortex.
+        data_tests:
+          - not_null
+
+      - name: generated_summary
+        description: Executive narrative returned by Cortex.
+        data_tests:
+          - not_null
+
+      - name: generated_at
+        description: Timestamp when Cortex generated the summary.
+        data_tests:
+          - not_null
+
+      - name: review_status
+        description: Human-review status of the generated summary.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - PENDING_REVIEW
+                  - APPROVED
+                  - REJECTED
   - name: kpi_anomaly_results
     description: >
       KPI observations scored by the Snowflake ML anomaly detector,

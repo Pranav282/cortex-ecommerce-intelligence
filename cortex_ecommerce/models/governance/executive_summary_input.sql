@@ -168,7 +168,22 @@ kpi_rollup AS (
         max(metric_timestamp)::date AS latest_metric_date,
 
         /* Number of anomalies detected for this KPI. */
-        count_if(is_anomaly = TRUE) AS anomaly_count
+        count_if(is_anomaly = TRUE) AS anomaly_count,
+
+        CASE
+            WHEN metric_name = 'CART_ABANDONMENT_RATE'
+                THEN 'LOWER_IS_BETTER'
+
+            WHEN metric_name IN (
+                'AVERAGE_ORDER_VALUE',
+                'COMPLETED_REVENUE',
+                'SESSION_CONVERSION_RATE',
+                'TOTAL_ORDERS'
+            )
+                THEN 'HIGHER_IS_BETTER'
+
+            ELSE 'CONTEXT_DEPENDENT'
+        END AS desired_direction
 
     FROM anomaly_results
 
@@ -203,7 +218,8 @@ kpi_context AS (
                 'latest_actual', latest_actual_value,
                 'latest_expected', latest_expected_value,
                 'latest_metric_date', latest_metric_date,
-                'anomaly_count', anomaly_count
+                'anomaly_count', anomaly_count,
+                'desired_direction', desired_direction
             )
         ) WITHIN GROUP (
             ORDER BY channel, metric_name
