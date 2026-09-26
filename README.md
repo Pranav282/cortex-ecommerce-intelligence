@@ -2,19 +2,17 @@
 
 CortexEcommerce is an end-to-end eCommerce analytics and AI-governance project built on Snowflake and dbt. It transforms TheLook event and transaction data into tested customer-lifecycle and go-to-market (GTM) marts, detects unusual KPI behavior with Snowflake ML, and generates traceable executive summaries with Snowflake Cortex.
 
-## Project status
+## Project phases
 
-| Area | Status | Current implementation |
+| Phase | Scope | Status |
 |---|---|---|
-| Data ingestion | Complete | Python extraction from BigQuery and loading into Snowflake, using Parquet as the intermediate format |
-| Analytics engineering | Complete | Staging, intermediate, core, customer-lifecycle, GTM, and monitoring models in dbt |
-| Data quality | Complete | Source, relationship, uniqueness, accepted-value, range, and not-null tests |
-| KPI anomaly detection | Complete | Multi-series Snowflake ML anomaly detection with persisted results and documented series exclusions |
-| Cortex executive summaries | Complete | Evidence input, versioned prompt, generated output, model metadata, timestamp, and review status are persisted |
-| Technical AI validation | Complete | SQL checks for completeness, identifiers, reporting periods, metadata, review statuses, and output length |
-| Human grounding review | Implemented locally | Reviewers compare responses with stored evidence and save decisions and metadata to the source table; review columns require provisioning |
-| Streamlit application | Implemented locally | Summary selection, evidence display, approval/rejection, and optional KPI/anomaly CSV exploration |
-| Stakeholder notifications | Planned | Email and Slack delivery after approval, with delivery tracking and retries |
+| 1. Data foundation | BigQuery extraction and Snowflake ingestion | Implemented |
+| 2. Analytics engineering | dbt transformations, business marts, and data tests | Implemented |
+| 3. Anomaly detection | KPI scoring and persisted anomaly evidence | Implemented |
+| 4. AI summary generation | Cortex summaries, traceability, and technical validation | Implemented |
+| 5. Human review | Streamlit evidence review and saved approval decisions | Implemented locally |
+| 6. Stakeholder delivery | Email and Slack notifications | Planned |
+| 7. Operational improvements | Review decision history, authentication, scheduling, and monitoring | Planned |
 
 ## Business questions
 
@@ -123,12 +121,18 @@ The generated narrative is therefore treated as a reviewable analytical artifact
 
 ### Planned extensions
 
-- Email and Slack notifications for approved summaries
-- Review audit history and authenticated reviewer identity
-- Snowpark for application-side transformations or model workflows
-- Purchase-propensity and customer-risk models
-- Automated claim-to-evidence validation
-- CI/CD and scheduled orchestration
+Longer-term extensions would broaden the project's analytical scope:
+
+- Explore a Cortex agent for text-to-SQL, allowing users to ask business
+  questions in natural language and query the project's analytical models
+- Purchase-propensity models to identify customers likely to buy
+- Customer-risk models to identify customers at risk of disengagement
+- Snowpark-based transformations or model workflows where in-warehouse Python
+  would support these additional use cases
+
+These are exploration ideas, not committed deliverables. Near-term delivery
+work is defined in the [next milestone](#next-milestone); improvements to the
+existing workflow are prioritized in the [improvement roadmap](#improvement-roadmap).
 
 ## Repository structure
 
@@ -366,14 +370,15 @@ configuration and implementation. Store integration credentials outside Git.
 
 ## Known limitations
 
-- One KPI series was skipped during anomaly scoring after a series-specific Snowflake ML error; the exclusion is captured for auditability.
-- Passing structural validation does not prove that every generated statement is supported by the evidence.
-- Review metadata columns require the manual provisioning step above; fresh dbt builds do not create them.
-- Reviewer names are self-reported. The local app has no authenticated reviewer identity or stakeholder access controls.
-- New generated summaries are appended to the history table. Re-reviewing an existing summary updates its review metadata in place; earlier decisions for that same summary are not retained. An append-only review audit table is planned.
-- Evidence is displayed as the stored prompt rather than a structured claim-by-claim evidence interface.
-- Email and Slack notifications, delivery tracking, and retries are not yet implemented.
-- The current workflow is manually executed rather than orchestrated on a production schedule.
+- **Scoring coverage:** A previously documented scoring run skipped one KPI series after a Snowflake ML error. Check the persisted exclusions for the run being reviewed; that historical count is not a guarantee for future runs.
+- **Summary verification:** Structural SQL/dbt checks do not establish that every generated claim is supported. Human review remains necessary; evidence is displayed in the stored prompt rather than mapped to individual claims.
+- **Fresh-environment setup:** Review metadata columns require the manual provisioning step above because the dbt generation model does not create them. A configured existing table may already contain these columns.
+- **Reviewer identity:** Names are entered by the reviewer. The local app does not authenticate reviewers or provide stakeholder access controls.
+- **Operations:** Pipeline execution and standalone validation scripts require manual execution.
+
+Current review persistence is described under [human review and approved
+publication](#human-review-and-approved-publication). Delivery work and its
+acceptance criteria are defined in the [next milestone](#next-milestone).
 
 ## Improvement roadmap
 
@@ -388,5 +393,22 @@ configuration and implementation. Store integration credentials outside Git.
 | 7 | Operational monitoring | Track stale data, failed runs, pending reviews, notification failures, and Cortex costs |
 | 8 | CI and reproducible setup | Validate changes and provision required schemas consistently |
 
-The next milestone is to approve one summary, preserve its review history,
-deliver email and Slack notifications, and display delivery status in Streamlit.
+## Next milestone
+
+Extend the working approval flow with email and Slack delivery. The milestone
+is complete when:
+
+1. Saving a review retains a separate decision-history record while updating
+   the summary's latest review metadata.
+2. An approval queues notifications for configured email recipients and a
+   Slack channel in the same transaction as the saved decision. Pending and
+   rejected summaries do not queue approval notifications.
+3. A delivery worker records success or failure independently for email and
+   Slack, retries failures, and avoids resending confirmed deliveries.
+4. Streamlit shows delivery status, including failures requiring attention.
+5. A controlled end-to-end check verifies approval, both delivery channels,
+   retry behavior, and preservation of earlier decisions after a re-review.
+
+Email service, stakeholder recipients, and the Slack channel must be configured
+before delivery can be enabled. Other improvements remain in the
+[improvement roadmap](#improvement-roadmap).
