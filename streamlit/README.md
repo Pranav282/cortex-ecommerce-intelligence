@@ -1,38 +1,51 @@
-# Cortex Commerce Performance app
+﻿# Cortex summary review
 
-A read-only Streamlit presentation that automatically loads the latest approved executive summary from Snowflake. KPI observations and anomalies can be explored through optional CSV uploads.
+Review generated responses beside their stored prompt and evidence. Save an
+APPROVED or REJECTED decision, reviewer name, timestamp, and notes to the
+existing EXECUTIVE_SUMMARIES table. Generated response text is preserved.
 
-## Before publishing
+## Setup
 
-1. Identify the Snowflake table or view containing the reviewed summaries. It must expose `SUMMARY_TEXT`, `REVIEW_STATUS`, and `APPROVED_AT`. If your actual columns differ, adapt the query in `app.py` or create a view with these aliases. `APPROVED_AT` should be populated on approval.
-2. Give a dedicated, read-only Snowflake role `SELECT` access to that table or view.
-3. Confirm the period, counts, and insights against the final scoring run. Export only data you may share.
-4. Optionally prepare KPI and anomaly CSV files. The app accepts any column set; columns named `channel`, `metric_name`, or `kpi_name` receive filters. Keep an `evidence_id` column in the anomaly export when available.
-
-Create `.streamlit/secrets.toml` locally (it is ignored by Git):
+1. Use a role with warehouse/database/schema USAGE and SELECT and UPDATE on
+   the summary history table. Target the table, not the approved-only view.
+2. Create `streamlit/.streamlit/secrets.toml` (ignored by Git):
 
 ```toml
 [snowflake]
-account = "your_account_identifier"
-user = "your_read_only_user"
-password = "your_password"
-warehouse = "your_warehouse"
-database = "your_database"
-schema = "your_schema"
-role = "your_read_only_role"
-summary_table = "YOUR_DATABASE.YOUR_SCHEMA.YOUR_APPROVED_SUMMARIES_VIEW"
+account = "YOUR_ORG-YOUR_ACCOUNT"
+user = "YOUR_USER"
+authenticator = "externalbrowser"
+warehouse = "YOUR_WAREHOUSE"
+database = "CORTEX_ECOMMERCE"
+schema = "AI_GOVERNANCE"
+role = "YOUR_REVIEW_ROLE"
+summary_table = "CORTEX_ECOMMERCE.AI_GOVERNANCE.EXECUTIVE_SUMMARIES"
 ```
 
-The app queries the latest row whose `REVIEW_STATUS` is `APPROVED`, ordered by `APPROVED_AT`. The summary refreshes at most every five minutes while the app is active. To show a specific reporting run instead, add a reporting-period condition to the query.
+External-browser authentication requires SSO configured for your account.
+Alternatively remove `authenticator` and set `password`, or use
+`private_key_file` and `private_key_file_pwd` for key-pair authentication.
+Never commit credentials.
 
-## Run locally
+## Run from the repository root (PowerShell)
 
-```bash
-python -m venv .venv
-pip install -r requirements.txt
-streamlit run app.py
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r streamlit/requirements.txt
+Set-Location streamlit
+..\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-## Deploy
+Open http://localhost:8501. Select a pending summary, compare the response
+with its evidence, enter your name and notes, choose a decision, confirm
+you checked the evidence, and click **Save review to Snowflake**.
+Use the status filter to revisit saved reviews. Concurrent changes cause a
+save to fail so you can refresh before reviewing again.
 
-Push this folder's files to a GitHub repository. In Streamlit Community Cloud, create an app from that repository and choose `app.py` as its entry point. Copy your local secrets values into the app's Secrets settings; never commit `secrets.toml`. Set visibility appropriately before sharing its URL. The app connects to Snowflake on the server to retrieve approved text; visitors do not enter credentials.
+Optional CSV uploads remain available for exploring supporting data.
+The app reviews existing responses; it does not generate new ones.
+The approved_executive_summaries dbt view reflects approvals automatically
+once built. Run `dbt build --project-dir cortex_ecommerce --select
+approved_executive_summaries` from the repository root if needed.
+
+Run locally for a trusted reviewer. The reviewer name is self-reported;
+add authenticated reviewer identity before hosting a shared instance.
