@@ -41,3 +41,11 @@ models:
     marts:
       +materialized: table
       +schema: analytics
+    ml:
+      +materialized: table
+      +schema: ml
+
+    governance:
+      +materialized: table
+      +schema: ai_governance
+      +tags: [post_training]

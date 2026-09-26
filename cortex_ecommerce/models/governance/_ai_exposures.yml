@@ -13,7 +13,7 @@ exposures:
 
     depends_on:
       - ref('mart_daily_business_kpis')
-      - source('ai_governance', 'kpi_anomaly_results')
+      - ref('kpi_anomaly_results')
 
     owner:
       name: Pranav Nair
@@ -33,9 +33,9 @@ exposures:
 
     depends_on:
       - ref('mart_daily_business_kpis')
-      - source('ai_governance', 'kpi_anomaly_results')
-      - source('ai_governance', 'executive_summary_input')
-      - source('ai_governance', 'executive_summaries')
+      - ref('kpi_anomaly_results')
+      - ref('executive_summary_input')
+      - ref('executive_summaries')
 
     owner:
       name: Pranav Nair
