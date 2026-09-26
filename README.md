@@ -159,6 +159,53 @@ The generated narrative is therefore treated as a reviewable analytical artifact
 
 Keep credentials outside Git. The repository does not require `profiles.yml`, passwords, private keys, or service-account files to be committed.
 
+### Set Snowflake credentials in PowerShell
+
+Run these commands in the same terminal you will use for dbt. Replace the
+account and username placeholders with your Snowflake values:
+
+```powershell
+$env:SNOWFLAKE_ACCOUNT = "YOUR_ORG-YOUR_ACCOUNT"
+$env:SNOWFLAKE_USER = "YOUR_USERNAME"
+
+$keyPassphrase = Read-Host "Private-key passphrase" -AsSecureString
+$env:SNOWFLAKE_PRIVATE_KEY_PASSPHRASE = [System.Net.NetworkCredential]::new("", $keyPassphrase).Password
+Remove-Variable keyPassphrase
+```
+
+Enter the passphrase for your private-key file, not your Snowflake login
+password. In your local `~/.dbt/profiles.yml`, the existing output configuration
+should include these fields (replace the key path):
+
+```yaml
+account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+user: "{{ env_var('SNOWFLAKE_USER') }}"
+private_key_path: 'C:/Users/YOUR_WINDOWS_USER/.dbt/rsa_key_new.p8'
+private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE') }}"
+```
+
+The matching public key must already be registered on your Snowflake user.
+From the repository root, activate the environment and check the connection:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+dbt debug --project-dir cortex_ecommerce
+```
+
+These variables apply only to this terminal session and processes launched
+from it. Repeat the commands in a new terminal. The hidden prompt keeps the
+passphrase out of command history; never save actual credentials in Git.
+
+For the Python loader, set the Snowflake login password separately:
+
+```powershell
+$loginPassword = Read-Host "Snowflake login password for the loader" -AsSecureString
+$env:SNOWFLAKE_PASSWORD = [System.Net.NetworkCredential]::new("", $loginPassword).Password
+Remove-Variable loginPassword
+```
+
+The loader uses password authentication; dbt uses the configured private key.
+
 ### Build and test the dbt project
 
 ```bash
