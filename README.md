@@ -12,8 +12,9 @@ CortexEcommerce is an end-to-end eCommerce analytics and AI-governance project b
 | KPI anomaly detection | Complete | Multi-series Snowflake ML anomaly detection with persisted results and documented series exclusions |
 | Cortex executive summaries | Complete | Evidence input, versioned prompt, generated output, model metadata, timestamp, and review status are persisted |
 | Technical AI validation | Complete | SQL checks for completeness, identifiers, reporting periods, metadata, review statuses, and output length |
-| Human grounding review | In progress | Approved-only dbt view is defined; review metadata provisioning and formal claim-by-claim review remain to be completed |
-| Streamlit application | Planned | Interactive KPI, anomaly, evidence, and human-review interface |
+| Human grounding review | Implemented locally | Reviewers compare responses with stored evidence and save decisions and metadata to the source table; review columns require provisioning |
+| Streamlit application | Implemented locally | Summary selection, evidence display, approval/rejection, and optional KPI/anomaly CSV exploration |
+| Stakeholder notifications | Planned | Email and Slack delivery after approval, with delivery tracking and retries |
 
 ## Business questions
 
@@ -41,8 +42,10 @@ flowchart TD
     H --> I["Controlled executive-summary evidence"]
     I --> J["Snowflake Cortex summary"]
     J --> K["Governed output and review status"]
-    K --> L["Human evidence review"]
+    K --> L["Streamlit human evidence review"]
     L --> M["Approved-only summary view"]
+    L -.-> N["Planned: notification queue"]
+    N -.-> O["Planned: email and Slack delivery"]
 ```
 
 ## Data
@@ -115,11 +118,13 @@ The generated narrative is therefore treated as a reviewable analytical artifact
 - Parquet
 - Snowflake ML anomaly detection
 - Snowflake Cortex AI functions
+- Streamlit for local human review and CSV exploration
 - Git and GitHub
 
 ### Planned extensions
 
-- Streamlit for interactive analytics and human review
+- Email and Slack notifications for approved summaries
+- Review audit history and authenticated reviewer identity
 - Snowpark for application-side transformations or model workflows
 - Purchase-propensity and customer-risk models
 - Automated claim-to-evidence validation
@@ -265,31 +270,123 @@ Reviewers must verify the narrative against the stored evidence before recording
 approval. Once the view exists, changes to review status are reflected without
 regenerating summaries.
 
-The view selects `reviewed_by`, `reviewed_at`, and `review_notes`, but the current
-`executive_summaries` model does not create those columns. Provision them on the
-underlying history table through a schema migration before building the view;
-a fresh build alone does not yet provide a complete review workflow. Existing
-history tables also need `input_hash` before the incremental generation query
-can use its deduplication check.
+The Streamlit app updates the selected `summary_id` directly in the configured
+`EXECUTIVE_SUMMARIES` source table. It saves `review_status`, `reviewed_by`,
+`reviewed_at`, and `review_notes`, preserving the generated response text.
+The save commits only when exactly one matching record is updated; stale or
+nonunique records cause a rollback. Review metadata represents the latest
+decision; a separate history of all review decisions is not yet implemented.
+
+The current `executive_summaries` model does not create the review metadata
+columns. Before using the app or building the approved view, provision these
+columns on the existing history table using its owner role. Adjust the database
+and schema to match your deployment:
+
+```sql
+ALTER TABLE CORTEX_ECOMMERCE.AI_GOVERNANCE.EXECUTIVE_SUMMARIES
+    ADD COLUMN IF NOT EXISTS REVIEWED_BY VARCHAR;
+ALTER TABLE CORTEX_ECOMMERCE.AI_GOVERNANCE.EXECUTIVE_SUMMARIES
+    ADD COLUMN IF NOT EXISTS REVIEWED_AT TIMESTAMP_NTZ;
+ALTER TABLE CORTEX_ECOMMERCE.AI_GOVERNANCE.EXECUTIVE_SUMMARIES
+    ADD COLUMN IF NOT EXISTS REVIEW_NOTES VARCHAR;
+```
+
+Existing history tables also need `input_hash` before the incremental generation
+query can use its deduplication check.
 
 The review-status documentation currently includes `NEEDS_REVISION` in one
 place, while the original accepted-values test and manual validation still
 allow only `PENDING_REVIEW`, `APPROVED`, and `REJECTED`. Align those checks before
 using `NEEDS_REVISION` as a stored status.
 
+### Run the Streamlit review app
+
+The app uses `streamlit/.streamlit/secrets.toml`, which is ignored by Git.
+It does not read your dbt profile or the Snowflake environment variables shown
+above. Create the file with your connection settings; for key-pair login:
+
+```toml
+[snowflake]
+account = "YOUR_ORG-YOUR_ACCOUNT"
+user = "YOUR_USERNAME"
+warehouse = "YOUR_WAREHOUSE"
+database = "CORTEX_ECOMMERCE"
+schema = "AI_GOVERNANCE"
+role = "YOUR_REVIEW_ROLE"
+private_key_file = "C:/Users/YOUR_WINDOWS_USER/.dbt/rsa_key_new.p8"
+private_key_file_pwd = "YOUR_PRIVATE_KEY_PASSPHRASE"
+summary_table = "CORTEX_ECOMMERCE.AI_GOVERNANCE.EXECUTIVE_SUMMARIES"
+```
+
+Use the connection values from your working dbt configuration. The review role
+needs warehouse, database, and schema USAGE plus SELECT and UPDATE on the source
+table. Keep credentials and private keys outside version control.
+
+From the repository root in PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r streamlit/requirements.txt
+Set-Location streamlit
+..\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Open http://localhost:8501. Use the Streamlit runner rather than running
+`app.py` directly; direct execution does not provide Streamlit session state.
+Press Ctrl+C in the terminal to stop the server.
+
+1. Select a `PENDING_REVIEW` summary.
+2. Compare the generated response with the stored prompt and evidence.
+3. Enter your reviewer name and notes, choose `APPROVED` or `REJECTED`, and
+   confirm that you checked the evidence.
+4. Click **Save review to Snowflake** to update the source record.
+5. Change the status filter to revisit the saved decision.
+
+Optional KPI and anomaly CSV uploads support additional exploration. The app
+reviews existing responses; generate new responses through the dbt workflow.
+See [the Streamlit README](streamlit/README.md) for additional authentication options.
+
+### Stakeholder delivery (planned)
+
+Approval currently updates Snowflake and makes the record available through the
+approved-only view once built. It does not send email or Slack messages.
+
+The planned delivery workflow is:
+
+1. Save the approval, append a review-history record, and queue email and Slack
+   notifications in one database transaction.
+2. Have a separate worker deliver the approved summary, reporting period, and
+   reviewer information to configured stakeholder recipients and a Slack channel.
+3. Track each channel's delivery status, attempts, and errors independently;
+   retry failures without undoing approval or resending confirmed deliveries.
+4. Show delivery status in Streamlit. Use an approval-event identifier for
+   deduplication and handle ambiguous delivery outcomes explicitly.
+
+Email service, recipients, Slack integration, and worker scheduling still need
+configuration and implementation. Store integration credentials outside Git.
+
 ## Known limitations
 
 - One KPI series was skipped during anomaly scoring after a series-specific Snowflake ML error; the exclusion is captured for auditability.
 - Passing structural validation does not prove that every generated statement is supported by the evidence.
-- The repository defines an approved-only view, but does not yet provide the review metadata migration or a complete human-review interface.
-- The Streamlit presentation and review layer has not yet been built.
+- Review metadata columns require the manual provisioning step above; fresh dbt builds do not create them.
+- Reviewer names are self-reported. The local app has no authenticated reviewer identity or stakeholder access controls.
+- New generated summaries are appended to the history table. Re-reviewing an existing summary updates its review metadata in place; earlier decisions for that same summary are not retained. An append-only review audit table is planned.
+- Evidence is displayed as the stored prompt rather than a structured claim-by-claim evidence interface.
+- Email and Slack notifications, delivery tracking, and retries are not yet implemented.
 - The current workflow is manually executed rather than orchestrated on a production schedule.
 
-## Next milestone
+## Improvement roadmap
 
-The next milestone is a governed human-review workflow that:
+| Priority | Improvement | Intended outcome |
+|---|---|---|
+| 1 | Approval-to-delivery workflow | Deliver email and Slack notifications, track results, and retry failures |
+| 2 | Review decision history | Retain previous decisions when an existing summary is reviewed again; the latest decision and reviewer metadata are already saved |
+| 3 | Reviewer authentication | Associate decisions with verified users and restrict review access |
+| 4 | Structured evidence display | Show KPI changes, anomaly charts, and evidence IDs beside summary claims |
+| 5 | Summary quality evaluation | Check numerical accuracy, citations, unsupported claims, and reporting periods |
+| 6 | Scheduled pipeline | Automate data refresh, dbt checks, scoring, and generation with failure handling |
+| 7 | Operational monitoring | Track stale data, failed runs, pending reviews, notification failures, and Cortex costs |
+| 8 | CI and reproducible setup | Validate changes and provision required schemas consistently |
 
-1. presents each generated claim beside its supporting KPI or anomaly evidence;
-2. records reviewer notes and an `APPROVED` or `REJECTED` decision;
-3. integrates the approved-only view into downstream consumption;
-4. exposes the workflow through Streamlit.
+The next milestone is to approve one summary, preserve its review history,
+deliver email and Slack notifications, and display delivery status in Streamlit.
